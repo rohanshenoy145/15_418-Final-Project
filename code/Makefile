@@ -1,6 +1,6 @@
 APP_NAME=boruvka
 
-OBJS=boruvka.o 
+OBJS=main.cpp
 
 CXX = g++
 CXXFLAGS = -Wall -O3 -std=c++17 -m64 -I. -fopenmp -Wno-unknown-pragmas
