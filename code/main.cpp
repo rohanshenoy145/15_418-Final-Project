@@ -149,6 +149,7 @@ int main(int argc, char *argv[]) {
             i ++;
         }
     }
+    fclose(fd);
 
     std::unordered_map<int, std::vector<Edge>> G = make_graph(input_edges);
 
@@ -159,6 +160,11 @@ int main(int argc, char *argv[]) {
     for (size_t i = 0; i < T.size(); i ++) {
         final_edges.push_back(input_edges[T[i]]);
     }
+
+    // std::ofstream outputFile();
+    // for (size_t i = 0; i < final_edges.size(); i ++ ) {
+        
+    // }
 
 
     
