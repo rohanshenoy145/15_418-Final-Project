@@ -1,4 +1,5 @@
 #include <iostream>
+#include <unordered_set>
 #include <unordered_map>
 #include <vector>
 #include <set>
@@ -8,6 +9,7 @@
 #include <fstream>
 #include <string>
 #include <getopt.h>
+
 
 
 struct Edge {
@@ -31,8 +33,8 @@ std::unordered_map<int, std::vector<Edge>> make_graph(std::vector<Edge>&input_ed
         int temp = e.u;
         e.u = e.v;
         e.v = temp;
-        auto it = G.find(e.v);
-        if (it == G.end()){
+        auto it2 = G.find(e.v);
+        if (it2 == G.end()){
             G[e.v] = {e};
         }
         else{
@@ -46,7 +48,7 @@ std::unordered_map<int, std::vector<Edge>> make_graph(std::vector<Edge>&input_ed
     return G;
 }
 
-std::unordered_map<int, int> flip_coins (std::unordered_map<int, std::vector<Edge>> &G){
+std::unordered_map<int, int> flip_coins (std::unordered_map<int,std::vector<Edge>> &G){
     std::unordered_map<int, int> flips;
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -59,7 +61,7 @@ std::unordered_map<int, int> flip_coins (std::unordered_map<int, std::vector<Edg
     return flips;
 }
 
-std::vector<int> MST(std::unordered_map<int, std::vector<Edge>> &G, std::vector<int> &T){
+std::unordered_set<int> MST(std::unordered_map<int, std::vector<Edge>> &G, std::unordered_set<int> &T){
     
     std::unordered_map<int, int> flips = flip_coins(G);
     while (G.size() > 1) {
@@ -91,7 +93,7 @@ std::vector<int> MST(std::unordered_map<int, std::vector<Edge>> &G, std::vector<
             e.l = min_label;
             // Add the label to the MST vector and contract
             if ( !flips[e.u] && flips[e.v] ) {
-                T.push_back(e.l);
+                T.insert(e.l);
                 P[e.u] = e.v;
             }
         }
@@ -168,13 +170,7 @@ int main(int argc, char *argv[]) {
             e.l = i;
             input_edges.push_back(e);
             i ++;
-        
-            
-
-
         }
-    
-
         fclose(fd);
     }
     
@@ -182,12 +178,12 @@ int main(int argc, char *argv[]) {
     
 
     std::unordered_map<int, std::vector<Edge>> G = make_graph(input_edges);
-    std::vector<int> T;
+    std::unordered_set<int> T;
 
-    std::vector<int> res = MST(G, T);
+    std::unordered_set<int> res = MST(G, T);
     std::vector<Edge> final_edges;
-    for (size_t i = 0; i < T.size(); i ++) {
-        final_edges.push_back(input_edges[T[i]]);
+    for (int label : T) {
+        final_edges.push_back(input_edges[label]);
     }
 
     std::ofstream outputFile("Edgesoutput.txt");
