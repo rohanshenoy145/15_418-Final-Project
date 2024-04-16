@@ -9,7 +9,7 @@
 #include <fstream>
 #include <string>
 #include <getopt.h>
-
+using namespace std;
 
 
 struct Edge {
@@ -43,7 +43,7 @@ std::unordered_map<int, std::vector<Edge>> make_graph(std::vector<Edge>&input_ed
     }
     std::cout << input_edges.size() << std::endl;
 
-     std::cout << G.size() << std::endl;
+    std::cout << G.size() << std::endl;
 
     return G;
 }
@@ -63,11 +63,12 @@ std::unordered_map<int, int> flip_coins (std::unordered_map<int,std::vector<Edge
 
 std::unordered_set<int> MST(std::unordered_map<int, std::vector<Edge>> &G, std::unordered_set<int> &T){
     
-    std::unordered_map<int, int> flips = flip_coins(G);
+    std::unordered_map<int, int> flips; 
     while (G.size() > 1) {
         // For each vertex, find its minimum cost edge
         std::unordered_map<int, int> P;
         for (const auto &item: G ){
+            flips = flip_coins(G);
             int src = item.first;
             std::vector<Edge> neighbors = item.second;
             int min_weight = INT_MAX;
@@ -146,11 +147,8 @@ int main(int argc, char *argv[]) {
                 std::cerr << "Usage: " << argv[0] << " -f <input_file_path>" << std::endl;
                 return 1;
         }
-        
     }
 
-
-    
     FILE * fd = fopen(inputFilePath, "rt");
     std::vector<Edge> input_edges;
     
@@ -173,9 +171,6 @@ int main(int argc, char *argv[]) {
         }
         fclose(fd);
     }
-    
-    
-    
 
     std::unordered_map<int, std::vector<Edge>> G = make_graph(input_edges);
     std::unordered_set<int> T;
@@ -186,31 +181,24 @@ int main(int argc, char *argv[]) {
         final_edges.push_back(input_edges[label]);
     }
 
-    std::ofstream outputFile("Edgesoutput.txt");
+    std::string out_name = inputFilePath;
+    std::string output_file_path = out_name + "_out.txt";
+    std::ofstream outputFile(output_file_path);
 
     if (!outputFile.is_open()) {
         std::cerr << "Failed to open the file!" << std::endl;
         return 1;
     }
 
-    // for(int r = 0; r< res.size(); r++)
-    // {
-    outputFile << input_edges.size()<< std::endl;
-    //}
-    
-    // for(Edge edge: final_edges)
-    // {
-    //     outputFile << " " << edge.u << " " << edge.v << " " << edge.w<< " " << edge.l << std::endl;
-    // }
+    for (size_t i = 0; i < final_edges.size(); i ++) {
+        Edge e = final_edges[i];
+        outputFile << e.u << " " << e.v << " " << e.w << std::endl;
+    }
     
     outputFile.close();
-    // std::ofstream outputFile();
-    // for (size_t i = 0; i < final_edges.size(); i ++ ) {
-        
-    // }
 
 
-    
+
     return 0;
 }
 
