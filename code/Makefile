@@ -1,6 +1,9 @@
-APP_NAME=boruvka
+APP_NAME=boruvka_ds
 
-OBJS=main.cpp
+OBJS=boruvka_ds.cpp
+
+HDRS = DisjointSets.h
+
 
 CXX = g++
 CXXFLAGS = -Wall -O3 -std=c++17 -m64 -I. -fopenmp -Wno-unknown-pragmas

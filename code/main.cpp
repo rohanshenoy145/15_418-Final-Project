@@ -30,20 +30,23 @@ std::unordered_map<int, std::vector<Edge>> make_graph(std::vector<Edge>&input_ed
         else{
             G[e.u].push_back(e);
         }
-        int temp = e.u;
-        e.u = e.v;
-        e.v = temp;
-        auto it2 = G.find(e.v);
+        Edge back;
+        
+        back.u = e.v;
+        back.v = e.u;
+        back.w = e.w;
+        back.l = e.l;
+        auto it2 = G.find(back.u);
         if (it2 == G.end()){
-            G[e.v] = {e};
+            G[back.u] = {back};
         }
         else{
-            G[e.v].push_back(e);
+            G[back.u].push_back(back);
         }
     }
-    std::cout << input_edges.size() << std::endl;
+    // std::cout << input_edges.size() << std::endl;
 
-    std::cout << G.size() << std::endl;
+    // std::cout << G.size() << std::endl;
 
     return G;
 }
@@ -64,18 +67,22 @@ std::unordered_map<int, int> flip_coins (std::unordered_map<int,std::vector<Edge
 std::unordered_set<int> MST(std::unordered_map<int, std::vector<Edge>> &G, std::unordered_set<int> &T){
     
     std::unordered_map<int, int> flips; 
+    int iter = 0;
     while (G.size() > 1) {
         // For each vertex, find its minimum cost edge
+        flips = flip_coins(G);
         std::unordered_map<int, int> P;
         for (const auto &item: G ){
-            flips = flip_coins(G);
+            
             int src = item.first;
             std::vector<Edge> neighbors = item.second;
             int min_weight = INT_MAX;
             int min_dest = -1;
             int min_label = INT_MAX;
+            // cout << "n size = " << neighbors.size() << endl;
             for (size_t i = 0; i < neighbors.size(); i++){
                 Edge cur_edge = neighbors[i];
+                // cout << "src = " << cur_edge.u <<"| out neighbor " << cur_edge.v << "| weight " << cur_edge.w << endl;
                 if (cur_edge.w < min_weight){
                     min_dest = cur_edge.v;
                     min_weight = cur_edge.w;
@@ -94,6 +101,7 @@ std::unordered_set<int> MST(std::unordered_map<int, std::vector<Edge>> &G, std::
             e.l = min_label;
             // Add the label to the MST vector and contract
             if ( !flips[e.u] && flips[e.v] ) {
+                // cout << "iter = " << iter << "| " << e.u << ", " << e.v << endl;
                 T.insert(e.l);
                 P[e.u] = e.v;
             }
@@ -128,6 +136,7 @@ std::unordered_set<int> MST(std::unordered_map<int, std::vector<Edge>> &G, std::
             }
         }
         G = new_G;
+        iter ++;
     }
     return T;
 }
@@ -175,6 +184,8 @@ int main(int argc, char *argv[]) {
     std::unordered_map<int, std::vector<Edge>> G = make_graph(input_edges);
     std::unordered_set<int> T;
 
+    size_t init_N = G.size();
+
     std::unordered_set<int> res = MST(G, T);
     std::vector<Edge> final_edges;
     for (int label : T) {
@@ -194,6 +205,7 @@ int main(int argc, char *argv[]) {
         Edge e = final_edges[i];
         outputFile << e.u << " " << e.v << " " << e.w << std::endl;
     }
+    cout << "N = " << init_N << " M = " << final_edges.size() << endl;
     
     outputFile.close();
 
