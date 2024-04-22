@@ -10,6 +10,7 @@
 #include <string>
 #include <getopt.h>
 #include <DisjointSets.h>
+#include <omp.h>
 #include <chrono>
 
 using namespace std;
@@ -73,14 +74,36 @@ vector<Edge> MST(Graph &G){
     while (G.nodes.size() > 1) {
 
         // Find shortest edges for each node.
+
         vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
+        
+        #pragma parallel
+        {
+            vector<pair<int,int>> local_shortest(init_size, { 0, INT_MAX});
+            #pragma omp for
+            for (size_t i = 0; i < G.edges.size(); i++) {
+                Edge cur = G.edges[i];
+                if (cur.w < local_shortest[cur.u].second) {
+                    local_shortest[cur.u] = {i, cur.w};
+                }
+            }
+
+            #pragma omp critical
+            for (size_t i = 0; i < init_size; i ++ ) {
+                pair<int,int> cur_global = shortest_edges[i];
+                pair<int,int> cur_local = local_shortest[i];
+                if (cur_local.second < cur_global.second) {
+                    shortest_edges[i] = {cur_local.first, cur_local.second};
+                }
+            }
+        }
         for (size_t i = 0; i < G.edges.size(); i ++) {
             Edge cur = G.edges[i];
-            pair<int, int> shortest = shortest_edges[cur.u];
             
-            if (cur.w < shortest.second) {
+            if (cur.w < shortest_edges[cur.u].second) {
                 shortest_edges[cur.u] = {i, cur.w };
             }
+            
         }
 
         for (size_t i = 0; i < G.nodes.size(); i ++ ) { 
@@ -109,7 +132,7 @@ vector<Edge> MST(Graph &G){
             }
         }
 
-        // Only keep nodes who are the representative vectors.
+        // Only keep nodes who are the representative nodes.
         vector<size_t> new_nodes;
         for (size_t i = 0; i < G.nodes.size(); i ++){
             size_t cur_node = G.nodes[i];
@@ -166,9 +189,9 @@ int main(int argc, char *argv[]) {
     auto start = std::chrono::high_resolution_clock::now();
     vector<Edge> res = MST(G);
     auto end = std::chrono::high_resolution_clock::now();
-
     std::chrono::duration<double> duration = end - start;
     std::cout << "Time taken: " << duration.count() << " seconds" << std::endl;
+
 
     std::string out_name = inputFilePath;
     std::string output_file_path = out_name + "_out.txt";

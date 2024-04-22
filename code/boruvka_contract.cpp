@@ -9,6 +9,7 @@
 #include <fstream>
 #include <string>
 #include <getopt.h>
+#include <chrono>
 using namespace std;
 
 
@@ -177,7 +178,14 @@ int main(int argc, char *argv[]) {
 
     size_t init_N = G.size();
 
+    auto start = std::chrono::high_resolution_clock::now();
     std::unordered_set<int> res = MST(G, T);
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> duration = end - start;
+    std::cout << "Time taken: " << duration.count() << " seconds" << std::endl;
+
     std::vector<Edge> final_edges;
     for (int label : T) {
         final_edges.push_back(input_edges[label]);
