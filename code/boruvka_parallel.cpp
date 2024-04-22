@@ -76,24 +76,34 @@ vector<Edge> MST(Graph &G){
         // Find shortest edges for each node.
 
         vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
-        
+        pair<int, int> *local_shortest;
         #pragma parallel
         {
-            vector<pair<int,int>> local_shortest(init_size, { 0, INT_MAX});
+            // vector<pair<int,int>> local_shortest(init_size, { 0, INT_MAX});
+
+            const int nthreads = omp_get_num_threads();
+            const int ithread = omp_get_thread_num();
+
+            #pragma omp single 
+            {
+                local_shortest = new pair<int,int>[nthreads*init_size];
+                for (size_t i = 0; i < nthreads*init_size; i ++) local_shortest[i] = make_pair(0, INT_MAX);
+            }
             #pragma omp for
             for (size_t i = 0; i < G.edges.size(); i++) {
                 Edge cur = G.edges[i];
-                if (cur.w < local_shortest[cur.u].second) {
-                    local_shortest[cur.u] = {i, cur.w};
+                if (cur.w < local_shortest[(ithread*init_size) + cur.u].second) {
+                    local_shortest[(ithread*init_size) + cur.u] = make_pair(i, cur.w);
                 }
             }
-
-            #pragma omp critical
+            #pragma omp for
             for (size_t i = 0; i < init_size; i ++ ) {
                 pair<int,int> cur_global = shortest_edges[i];
-                pair<int,int> cur_local = local_shortest[i];
-                if (cur_local.second < cur_global.second) {
-                    shortest_edges[i] = {cur_local.first, cur_local.second};
+                for (int t = 0 ; t < nthreads; t++ ) {
+                    pair<int,int> cur_local = local_shortest[(init_size*t) + i];
+                    if (cur_local.second < cur_global.second) {
+                        shortest_edges[i] = {cur_local.first, cur_local.second};
+                    }
                 }
             }
         }
