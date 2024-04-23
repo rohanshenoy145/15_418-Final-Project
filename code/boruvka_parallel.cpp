@@ -12,9 +12,12 @@
 #include <DisjointSets.h>
 #include <omp.h>
 #include <chrono>
+#include <atomic>
+
 
 using namespace std;
 
+int number_of_threads;
 
 struct Edge {
     size_t u;
@@ -71,57 +74,65 @@ vector<Edge> MST(Graph &G){
 
     ds::DisjointSets union_find(init_size);
 
+
     while (G.nodes.size() > 1) {
 
         // Find shortest edges for each node.
 
-        vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
-        pair<int, int> *local_shortest;
-        #pragma parallel
-        {
-            // vector<pair<int,int>> local_shortest(init_size, { 0, INT_MAX});
+        // vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
+        // pair<int, int> *local_shortest;
+        // #pragma parallel 
+        // {
+        //     // vector<pair<int,int>> local_shortest(init_size, { 0, INT_MAX});
 
-            const int nthreads = omp_get_num_threads();
-            const int ithread = omp_get_thread_num();
+        //     const int nthreads = omp_get_num_threads();
+        //     const int ithread = omp_get_thread_num();
 
-            #pragma omp single 
-            {
-                local_shortest = new pair<int,int>[nthreads*init_size];
-                for (size_t i = 0; i < nthreads*init_size; i ++) local_shortest[i] = make_pair(0, INT_MAX);
-            }
-            #pragma omp for
-            for (size_t i = 0; i < G.edges.size(); i++) {
-                Edge cur = G.edges[i];
-                if (cur.w < local_shortest[(ithread*init_size) + cur.u].second) {
-                    local_shortest[(ithread*init_size) + cur.u] = make_pair(i, cur.w);
-                }
-            }
-            #pragma omp for
-            for (size_t i = 0; i < init_size; i ++ ) {
-                pair<int,int> cur_global = shortest_edges[i];
-                for (int t = 0 ; t < nthreads; t++ ) {
-                    pair<int,int> cur_local = local_shortest[(init_size*t) + i];
-                    if (cur_local.second < cur_global.second) {
-                        shortest_edges[i] = {cur_local.first, cur_local.second};
-                    }
-                }
-            }
-        }
+        //     #pragma omp single 
+        //     {
+        //         local_shortest = new pair<int,int>[nthreads*init_size];
+        //         for (size_t i = 0; i < nthreads*init_size; i ++) local_shortest[i] = make_pair(0, INT_MAX);
+        //     }
+        //     #pragma omp for
+        //     for (size_t i = 0; i < G.edges.size(); i++) {
+        //         Edge cur = G.edges[i];
+        //         if (cur.w < local_shortest[(ithread*init_size) + cur.u].second) {
+        //             local_shortest[(ithread*init_size) + cur.u] = make_pair(i, cur.w);
+        //         }
+        //     }
+        //     #pragma omp for
+        //     for (size_t i = 0; i < init_size; i ++ ) {
+        //         pair<int,int> cur_global = shortest_edges[i];
+        //         for (int t = 0 ; t < nthreads; t++ ) {
+        //             pair<int,int> cur_local = local_shortest[(init_size*t) + i];
+        //             if (cur_local.second < cur_global.second) {
+        //                 shortest_edges[i] = {cur_local.first, cur_local.second};
+        //             }
+        //         }
+        //     }
+        // }
+
+        atomic<int>* shortest_edges;
+        shortest_edges = new atomic<int>[init_size];
+        for ( size_t i = 0; i < init_size ; i ++ ) shortest_edges[i] = 0;
+        // for ( size_t i = 0; i < init_size ; i ++ ) cout << shortest_edges[i] << endl;
+        omp_set_num_threads(number_of_threads);
+        #pragma omp parallel for 
         for (size_t i = 0; i < G.edges.size(); i ++) {
             Edge cur = G.edges[i];
-            
-            if (cur.w < shortest_edges[cur.u].second) {
-                shortest_edges[cur.u] = {i, cur.w };
-            }
+            int prev_value = shortest_edges[cur.u].load();
+
+            while (G.edges[prev_value].w > cur.w && 
+                        !(shortest_edges[cur.u]).compare_exchange_weak(prev_value, (int)i)){}
             
         }
 
         for (size_t i = 0; i < G.nodes.size(); i ++ ) { 
             size_t u = G.nodes[i];
-            Edge shortest_from_u = G.edges[shortest_edges[u].first];
+            Edge shortest_from_u = G.edges[shortest_edges[u]];
 
             size_t v = shortest_from_u.v;
-            Edge shortest_from_v = G.edges[shortest_edges[v].first];
+            Edge shortest_from_v = G.edges[shortest_edges[v]];
 
             // Ensure not a duplicate edge.
             if (u != shortest_from_v.v || (u == shortest_from_v.v && u < v)){
@@ -160,12 +171,14 @@ vector<Edge> MST(Graph &G){
 int main(int argc, char *argv[]) {
     char* inputFilePath = nullptr;
     int opt;
-    while ((opt = getopt(argc, argv, "f:")) != -1) {
+    while ((opt = getopt(argc, argv, "f:n:")) != -1) {
         switch (opt) {
             case 'f':
                 // -f option is used to specify the input file path
                 inputFilePath = optarg;
-                
+                break;
+            case 'n':
+                number_of_threads = atoi(optarg);
                 break;
             default:
                 // Print usage information if an invalid option is provided
@@ -195,6 +208,7 @@ int main(int argc, char *argv[]) {
     }
 
     Graph G = make_graph(input_edges);
+    
     size_t init_N = G.nodes.size();
     auto start = std::chrono::high_resolution_clock::now();
     vector<Edge> res = MST(G);
