@@ -112,21 +112,44 @@ vector<Edge> MST(Graph &G){
         //     }
         // }
 
-        atomic<int>* shortest_edges;
-        shortest_edges = new atomic<int>[init_size];
-        for ( size_t i = 0; i < init_size ; i ++ ) shortest_edges[i] = 0;
-        // for ( size_t i = 0; i < init_size ; i ++ ) cout << shortest_edges[i] << endl;
+        typedef struct {
+            int weight;
+            int index;
+        } max_t;
+
+        // #pragma omp declare reduction(get_max : max_t :\
+        // omp_out = omp_out.weight > omp_in.weight ? omp_out : omp_in)\
+        // initializer (omp_priv=(omp_orig))
+
+        max_t max_weight = {INT_MIN, 0};
+
         omp_set_num_threads(number_of_threads);
-        #pragma omp parallel for 
-        for (size_t i = 0; i < G.edges.size(); i ++) {
-            Edge cur = G.edges[i];
-            int prev_value = shortest_edges[cur.u].load();
+        // #pragma parallel {
 
-            while (G.edges[prev_value].w > cur.w && 
-                        !(shortest_edges[cur.u]).compare_exchange_weak(prev_value, (int)i)){}
+            // #pragma omp parallel for reduction (get_max:max_weight)
+            for (size_t i = 0; i < G.edges.size(); i ++ ) {
+                if (G.edges[i].w > max_weight.weight){
+                    max_weight.weight = G.edges[i].w ;
+                    max_weight.index = i;
+                }
+            }
+
+            atomic<int>* shortest_edges;
+            shortest_edges = new atomic<int>[init_size];
+            for ( size_t i = 0; i < init_size ; i ++ ) shortest_edges[i] = max_weight.index;
+            // for ( size_t i = 0; i < init_size ; i ++ ) cout << shortest_edges[i] << endl;
             
-        }
+            #pragma omp parallel for 
+            for (size_t i = 0; i < G.edges.size(); i ++) {
+                Edge cur = G.edges[i];
+                int prev_value = shortest_edges[cur.u].load();
 
+                while (G.edges[prev_value].w > cur.w && 
+                            !(shortest_edges[cur.u]).compare_exchange_weak(prev_value, (int)i)){}
+                
+            }
+
+        // }
         for (size_t i = 0; i < G.nodes.size(); i ++ ) { 
             size_t u = G.nodes[i];
             Edge shortest_from_u = G.edges[shortest_edges[u]];
