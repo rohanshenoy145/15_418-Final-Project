@@ -12,14 +12,19 @@
 #include <DisjointSets.h>
 #include <omp.h>
 #include <chrono>
+#include <mutex>
 
 using namespace std;
+int number_of_threads;
+
 
 
 struct Edge {
     size_t u;
     size_t v;
     int w;
+
+   // Edge() : u(0), v(0), w(0) {}
 };
 
 struct Graph {
@@ -51,23 +56,25 @@ Graph make_graph(std::vector<Edge>&input_edges) {
     return G;
 }
 
-std::unordered_map<int, int> flip_coins (std::unordered_map<int,std::vector<Edge>> &G){
-    std::unordered_map<int, int> flips;
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(0, 1);
-
-    for (const auto &item: G ){
-        int u = item.first;
-        flips[u] = dis(gen);
-    }
-    return flips;
-}
 
 vector<Edge> MST(Graph &G){
-    vector<Edge> mst_edges;
 
     size_t init_size = G.nodes.size();
+    vector<Edge> mst_edges(init_size);
+
+    
+   //initialize global mst_edges array
+    // for(size_t i = 0; i < init_size-1 ; i++)
+    // {
+    //     mst_edges[i] = Edge();
+    // }
+    
+    
+    
+    
+    
+
+
 
     ds::DisjointSets union_find(init_size);
 
@@ -107,35 +114,41 @@ vector<Edge> MST(Graph &G){
                 }
             }
         }
-        for (size_t i = 0; i < G.edges.size(); i ++) {
-            Edge cur = G.edges[i];
-            
-            if (cur.w < shortest_edges[cur.u].second) {
-                shortest_edges[cur.u] = {i, cur.w };
+        
+        
+            #pragma omp parallel for
+            for (size_t i = 0; i < G.nodes.size(); i ++ ) { 
+                size_t u = G.nodes[i];
+                Edge shortest_from_u = G.edges[shortest_edges[u].first];
+
+                size_t v = shortest_from_u.v;
+                Edge shortest_from_v = G.edges[shortest_edges[v].first];
+
+                // Ensure not a duplicate edge.
+                if (u != shortest_from_v.v || (u == shortest_from_v.v && u < v)){
+                    //mst_edges[u] = (shortest_from_u);
+                    
+                    #pragma omp critical
+                    mst_edges.push_back(shortest_from_u);
+                    union_find.unite(u, v);
+                    
+                    
+                     
+                }
             }
-            
-        }
 
-        for (size_t i = 0; i < G.nodes.size(); i ++ ) { 
-            size_t u = G.nodes[i];
-            Edge shortest_from_u = G.edges[shortest_edges[u].first];
+        
 
-            size_t v = shortest_from_u.v;
-            Edge shortest_from_v = G.edges[shortest_edges[v].first];
 
-            // Ensure not a duplicate edge.
-            if (u != shortest_from_v.v || (u == shortest_from_v.v && u < v)){
-                mst_edges.push_back(shortest_from_u);
-                union_find.unite(u, v);
-            }
-        }
 
         vector<Edge> new_edges;
+        #pragma omp for
         for (size_t i = 0; i < G.edges.size(); i ++ ){
             Edge cur = G.edges[i];
             // Cross edges only
             if (!union_find.same(cur.u, cur.v)) {
                 // Map endpoints to their new representative nodes
+                #pragma omp critical
                 cur.u = union_find.find(cur.u);
                 cur.v = union_find.find(cur.v);
                 new_edges.push_back(cur);
@@ -144,15 +157,19 @@ vector<Edge> MST(Graph &G){
 
         // Only keep nodes who are the representative nodes.
         vector<size_t> new_nodes;
+        #pragma omp for
         for (size_t i = 0; i < G.nodes.size(); i ++){
             size_t cur_node = G.nodes[i];
             if (union_find.find(cur_node) == cur_node) {
+                #pragma omp critical
                 new_nodes.push_back(cur_node);
             }
         }
-
+        #pragma omp single
+        {
         G.nodes = new_nodes;
         G.edges = new_edges;
+        }
     }
     return mst_edges;
 }
@@ -160,12 +177,14 @@ vector<Edge> MST(Graph &G){
 int main(int argc, char *argv[]) {
     char* inputFilePath = nullptr;
     int opt;
-    while ((opt = getopt(argc, argv, "f:")) != -1) {
+    while ((opt = getopt(argc, argv, "f:n:")) != -1) {
         switch (opt) {
             case 'f':
                 // -f option is used to specify the input file path
                 inputFilePath = optarg;
-                
+                break;
+            case 'n':
+                number_of_threads = atoi(optarg);
                 break;
             default:
                 // Print usage information if an invalid option is provided
@@ -195,6 +214,7 @@ int main(int argc, char *argv[]) {
     }
 
     Graph G = make_graph(input_edges);
+    
     size_t init_N = G.nodes.size();
     auto start = std::chrono::high_resolution_clock::now();
     vector<Edge> res = MST(G);
@@ -225,4 +245,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
