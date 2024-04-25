@@ -60,7 +60,7 @@ Graph make_graph(std::vector<Edge>&input_edges) {
 vector<Edge> MST(Graph &G){
 
     size_t init_size = G.nodes.size();
-    vector<Edge> mst_edges(init_size);
+    vector<Edge> mst_edges;
     
    //initialize global mst_edges array
     // for(size_t i = 0; i < init_size-1 ; i++)
@@ -97,19 +97,19 @@ vector<Edge> MST(Graph &G){
                 local_shortest = new pair<int,int>[number_of_threads*init_size];
                 for (size_t i = 0; i < number_of_threads*init_size; i ++) local_shortest[i] = make_pair(0, INT_MAX);
             }
-            #pragma omp for
+            #pragma omp parallel for schedule(static)
             for (size_t i = 0; i < G.edges.size(); i++) {
                             const int ithread = omp_get_thread_num();
-                               // std::cout << "threadID: " << ithread << std::endl;
-
+              
                 Edge cur = G.edges[i];
                 if (cur.w < local_shortest[(ithread*init_size) + cur.u].second) {
                     
                     local_shortest[(ithread*init_size) + cur.u] = make_pair(i, cur.w);
                 }
-                
+           
             }
-            //#pragma omp for
+            
+            #pragma omp parallel for
             for (size_t i = 0; i < init_size; i ++ ) {
                 pair<int,int> cur_global = shortest_edges[i];
                 for (int t = 0 ; t < number_of_threads; t++ ) {
@@ -118,62 +118,67 @@ vector<Edge> MST(Graph &G){
                         shortest_edges[i] = {cur_local.first, cur_local.second};
                     }
                 }
-            }
+             }
+            
         }
         
-            //#pragma omp parallel for 
+            #pragma omp parallel for 
             for (size_t i = 0; i < G.nodes.size(); i ++ ) { 
                 size_t u = G.nodes[i];
                 Edge shortest_from_u = G.edges[shortest_edges[u].first];
                 size_t v = shortest_from_u.v;
                 Edge shortest_from_v = G.edges[shortest_edges[v].first];
-                //#pragma omp critical
-                //{
                 // Ensure not a duplicate edge.
                 if (u != shortest_from_v.v || (u == shortest_from_v.v && u < v)){
                     //mst_edges[u] = (shortest_from_u); 
+                    #pragma omp critical
+                {
                     mst_edges.push_back(shortest_from_u);
                     union_find.unite(u, v);
                     
                 }
                      
-               // }
+                }
 
             }
 
         
 
 
-
+        
         vector<Edge> new_edges;
-        //#pragma omp for
+        #pragma omp parallel for
         for (size_t i = 0; i < G.edges.size(); i ++ ){
             Edge cur = G.edges[i];
+            
+             
+            
             // Cross edges only
             if (!union_find.same(cur.u, cur.v)) {
                 // Map endpoints to their new representative nodes
-                //#pragma omp critical
+                #pragma omp critical
+                {
                 cur.u = union_find.find(cur.u);
                 cur.v = union_find.find(cur.v);
                 new_edges.push_back(cur);
+                }
             }
         }
 
         // Only keep nodes who are the representative nodes.
         vector<size_t> new_nodes;
-        //#pragma omp for
+        #pragma parallel omp for
         for (size_t i = 0; i < G.nodes.size(); i ++){
             size_t cur_node = G.nodes[i];
             if (union_find.find(cur_node) == cur_node) {
-                //#pragma omp critical
                 new_nodes.push_back(cur_node);
             }
         }
-        //#pragma omp single
-        //{
+        #pragma omp single
+        {
         G.nodes = new_nodes;
         G.edges = new_edges;
-        //}
+        }
     }
     return mst_edges;
 }
