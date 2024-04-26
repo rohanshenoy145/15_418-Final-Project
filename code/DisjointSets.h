@@ -18,6 +18,10 @@
 #pragma once
 
 #include <vector>
+#include <mutex>
+
+std::mutex coarse_lock; 
+
 
 namespace ds
 {
@@ -38,6 +42,7 @@ public:
 
     std::size_t find(std::size_t x) const
     {
+        coarse_lock.lock();
         // Find the root
         auto y = x;
         while (mNodes[y].parent != y)
@@ -49,11 +54,13 @@ public:
             x = node.parent;
             node.parent = y;
         }
+        coarse_lock.unlock();
         return y;
     }
 
     void unite(std::size_t x, std::size_t y)
     {
+        coarse_lock.lock();
         auto& rootX = mNodes[find(x)];
         auto& rootY = mNodes[find(y)];
         if (rootX.parent != rootY.parent)
@@ -72,6 +79,7 @@ public:
             }
             --mNbSets; 
         }
+        coarse_lock.unlock();
     }
 
     bool same(std::size_t x, std::size_t y) const
