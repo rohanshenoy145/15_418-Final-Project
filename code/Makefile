@@ -1,8 +1,11 @@
-APP_NAME=boruvka_ds
+APP_NAME=boruvka_parallel
 
-OBJS=boruvka_ds.cpp
+SRCS=boruvka_parallel.cpp DisjointSets.cpp
 
 HDRS = DisjointSets.h
+
+OBJS = $(SRCS:.cpp=.o)
+
 
 
 CXX = g++
