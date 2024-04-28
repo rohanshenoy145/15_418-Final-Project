@@ -13,6 +13,11 @@
 #include <omp.h>
 #include <chrono>
 #include <mutex>
+#include <algorithm>
+#include <parallel/algorithm>
+#include <parallel/numeric>
+
+
 
 using namespace std;
 int number_of_threads;
@@ -60,10 +65,10 @@ Graph make_graph(std::vector<Edge>&input_edges) {
 vector<Edge> MST(Graph &G){
 
     size_t init_size = G.nodes.size();
-    vector<Edge> mst_edges;
+    vector<Edge> mst_edges(init_size - 1);
     
     ds::DisjointSets union_find(init_size);
-
+    size_t mstIndexOffset = 0;
     while (G.nodes.size() > 1) {
 
         // Find shortest edges for each node.
@@ -104,61 +109,100 @@ vector<Edge> MST(Graph &G){
                     }
                 }
             }
+
         }
 
-        #pragma parallel for num_threads(number_of_threads)
-        for (size_t i = 0; i < G.nodes.size(); i ++ ) { 
-            size_t u = G.nodes[i];
-            Edge shortest_from_u = G.edges[shortest_edges[u].first];
-            size_t v = shortest_from_u.v;
-            Edge shortest_from_v = G.edges[shortest_edges[v].first];
-            // Ensure not a duplicate edge.
-            if (u != shortest_from_v.v || (u == shortest_from_v.v && u < v)){
-                #pragma critical
-                {
-                mst_edges.push_back(shortest_from_u);
-                }
-                union_find.unite(u, v);      
-                       
+        vector< int> select_edges(G.edges.size());
+        omp_set_num_threads(number_of_threads);
+        #pragma omp parallel
+        {
+
+            #pragma omp for 
+            for(size_t i = 0; i < G.edges.size(); i++)
+            {
+                select_edges[i] = 0;
             }
 
+            #pragma omp for 
+            for (size_t i = 0; i < G.nodes.size(); i ++ ) { 
+                size_t u = G.nodes[i];
+                Edge shortest_from_u = G.edges[shortest_edges[u].first];
+                int id = shortest_edges[u].first; //edge id
+                size_t v = shortest_from_u.v;
+                Edge shortest_from_v = G.edges[shortest_edges[v].first];
+                // Ensure not a duplicate edge.
+                if (u != shortest_from_v.v || (u == shortest_from_v.v && u < v)){
+                    select_edges[id] = 1; // select edge 
+                    union_find.unite(u, v);  
+                    
+                }
+            }
         }
+        
+        vector< int> prefix_sum(G.edges.size());
+        __gnu_parallel::partial_sum(select_edges.begin(), select_edges.end(), prefix_sum.begin()); //prefix sum
 
 
+        #pragma omp parallel for
+        for(size_t i = 0; i < G.edges.size(); i++ )
+        {
+            if(select_edges[i])
+            {
+                mst_edges[mstIndexOffset + prefix_sum[i] - 1] = G.edges[i];
+            }
+        }
+        mstIndexOffset += prefix_sum[G.edges.size() - 1];
+    
+       ////////////////////////////////////////////////////////////////////////
+        
+        vector<int> selectNewEdges(G.edges.size());
+        
 
-        vector<Edge> new_edges;
-        #pragma parallel for num_threads(number_of_threads)
+        
+        #pragma omp parallel for
         for (size_t i = 0; i < G.edges.size(); i ++ ){
             Edge cur = G.edges[i];
-            // Cross edges only
+            selectNewEdges[i] = !union_find.same(cur.u, cur.v); //Cross edges only
+        }
+        vector< int> prefix_sum2(G.edges.size());
+        __gnu_parallel::partial_sum(selectNewEdges.begin(), selectNewEdges.end(), prefix_sum2.begin()); //prefix sum
+        vector<Edge> new_edges(prefix_sum2[G.edges.size() - 1]);
             
-            if (!union_find.same(cur.u, cur.v)) {
-                // Map endpoints to their new representative nodes
-                
+        #pragma omp parallel for
+        for (size_t i = 0; i < G.edges.size(); i ++ ){
+            if(selectNewEdges[i])
+            {
+
+                Edge cur = G.edges[i];
                 cur.u = union_find.find(cur.u);
                 cur.v = union_find.find(cur.v);
-                #pragma critical
-                {
-                new_edges.push_back(cur);
-                }
-                
+                new_edges[prefix_sum2[i] - 1] = cur;
             }
-            
-        }
 
+        }
+            
+    
+        
+        
         // Only keep nodes who are the representative nodes.
-        vector<size_t> new_nodes;
-        #pragma parallel for num_threads(number_of_threads)
+        vector<int> selectNewNodes(G.nodes.size());
+        #pragma omp parallel for
         for (size_t i = 0; i < G.nodes.size(); i ++){
             size_t cur_node = G.nodes[i];
+            selectNewNodes[i] = (union_find.find(cur_node) == cur_node);
+        }
+        
+        vector< int> prefix_sum3(G.nodes.size());
+        __gnu_parallel::partial_sum(selectNewNodes.begin(), selectNewNodes.end(), prefix_sum3.begin()); //prefix sum
+        vector<size_t> new_nodes(prefix_sum3[G.nodes.size() - 1]);
+
+        #pragma omp parallel for 
+        for (size_t i = 0; i < G.nodes.size(); i ++){
             
-            if (union_find.find(cur_node) == cur_node) {
-                #pragma critical
-                {
-                new_nodes.push_back(cur_node);
-                }
+            if(selectNewNodes[i])
+            {
+                new_nodes[prefix_sum3[i] - 1 ] = G.nodes[i];
             }
-            
                 
         }
 
