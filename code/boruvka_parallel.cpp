@@ -9,7 +9,7 @@
 #include <fstream>
 #include <string>
 #include <getopt.h>
-#include <DisjointSets.h>
+#include <ParallelDisjointSets.h>
 #include <omp.h>
 #include <chrono>
 #include <mutex>
@@ -71,7 +71,7 @@ vector<Edge> MST(Graph &G){
         vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
         pair<int, int>*local_shortest;
         
-        cout << G.nodes.size() << endl;
+        // cout << G.nodes.size() << endl;
 
         omp_set_num_threads(number_of_threads);
         #pragma omp parallel
@@ -106,7 +106,7 @@ vector<Edge> MST(Graph &G){
             }
         }
 
-        #pragma parallel for 
+        #pragma parallel for num_threads(number_of_threads)
         for (size_t i = 0; i < G.nodes.size(); i ++ ) { 
             size_t u = G.nodes[i];
             Edge shortest_from_u = G.edges[shortest_edges[u].first];
@@ -117,9 +117,9 @@ vector<Edge> MST(Graph &G){
                 #pragma critical
                 {
                 mst_edges.push_back(shortest_from_u);
-                 }    
+                }
                 union_find.unite(u, v);      
-                         
+                       
             }
 
         }
@@ -127,13 +127,14 @@ vector<Edge> MST(Graph &G){
 
 
         vector<Edge> new_edges;
-        #pragma parallel for
+        #pragma parallel for num_threads(number_of_threads)
         for (size_t i = 0; i < G.edges.size(); i ++ ){
             Edge cur = G.edges[i];
             // Cross edges only
             
             if (!union_find.same(cur.u, cur.v)) {
                 // Map endpoints to their new representative nodes
+                
                 cur.u = union_find.find(cur.u);
                 cur.v = union_find.find(cur.v);
                 #pragma critical
@@ -147,7 +148,7 @@ vector<Edge> MST(Graph &G){
 
         // Only keep nodes who are the representative nodes.
         vector<size_t> new_nodes;
-        #pragma parallel for 
+        #pragma parallel for num_threads(number_of_threads)
         for (size_t i = 0; i < G.nodes.size(); i ++){
             size_t cur_node = G.nodes[i];
             
