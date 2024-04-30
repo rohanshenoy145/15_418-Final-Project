@@ -9,7 +9,7 @@
 #include <fstream>
 #include <string>
 #include <getopt.h>
-#include <ParallelDisjointSets.h>
+#include <LockFreeDisjointSets.h>
 #include <omp.h>
 #include <chrono>
 #include <mutex>
