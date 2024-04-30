@@ -1,8 +1,8 @@
 APP_NAME=boruvka_parallel
 
-SRCS=boruvka_parallel.cpp ParallelDisjointSets.cpp
+SRCS=boruvka_parallel.cpp LockFreeDisjointSets.cpp
 
-HDRS = ParallelDisjointSets.h
+HDRS = LockFreeDisjointSets.h
 
 OBJS = $(SRCS:.cpp=.o)
 

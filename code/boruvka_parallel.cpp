@@ -153,7 +153,6 @@ vector<Edge> MST(Graph &G){
         }
         mstIndexOffset += prefix_sum[G.edges.size() - 1];
     
-       ////////////////////////////////////////////////////////////////////////
         
         vector<int> selectNewEdges(G.edges.size());
         
