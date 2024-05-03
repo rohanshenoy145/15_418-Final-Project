@@ -21,19 +21,20 @@ DisjointSets::DisjointSets(std::size_t size) : mNodes(size), mNbSets(size)
     }
 }
 
-std::size_t DisjointSets::find(std::size_t y) const
+std::size_t DisjointSets::find(std::size_t x) const
 {
-
-    // Find the root
-    // std::cout<<"find "<< y<<std::endl;
+    size_t y = x;
+    while (x != mNodes[x].load()->parent.load()){
+        x = mNodes[x].load()->parent.load();
+    }
+    
     size_t t = mNodes[y].load()->parent.load();
-    while (mNodes[y].load()->parent.load() != y){
-        (mNodes[y].load()->parent).compare_exchange_weak(t, mNodes[t].load()->parent.load());
+    while (mNodes[y].load()->rank < mNodes[x].load()->rank){
+        (mNodes[y].load()->parent).compare_exchange_weak(t, x);
         y = mNodes[t].load()->parent.load();
-        // std::cout<<"find"<<std::endl;
     }
    
-    return y;
+    return x;
 }
 
 bool DisjointSets::update_root(size_t x, size_t old_rank, size_t y, size_t new_rank) 
@@ -53,10 +54,8 @@ void DisjointSets::unite(std::size_t x, std::size_t y)
         size_t x1 = find(x);
         size_t y1 = find(y);
         if (x1 == y1) return;
-        // std::cout<<"unite"<<std::endl;
         size_t xr = mNodes[x1].load()->rank;
         size_t yr = mNodes[y1].load()->rank;
-        // std::cout<<"unite"<<std::endl;
         if (xr > yr || (xr == yr && x1 > y1)) {
             if (!update_root(y1, yr, x1, yr)) continue;
             if (xr == yr) update_root(x1, xr, x1, xr+1);
