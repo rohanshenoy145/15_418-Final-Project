@@ -21,7 +21,7 @@ DisjointSets::DisjointSets(std::size_t size) : mNodes(size), mNbSets(size)
 
 std::size_t DisjointSets::find(std::size_t x) const
 {
-    coarse_lock.lock();
+    // coarse_lock.lock();
     // Find the root
     auto y = x;
     while (mNodes[y].parent != y)
@@ -33,15 +33,15 @@ std::size_t DisjointSets::find(std::size_t x) const
         x = node.parent;
         node.parent = y;
     }
-    coarse_lock.unlock();
+    // coarse_lock.unlock();
     return y;
 }
 
 void DisjointSets::unite(std::size_t x, std::size_t y)
 {
-    coarse_lock.lock();
     auto& rootX = mNodes[find(x)];
     auto& rootY = mNodes[find(y)];
+    // coarse_lock.lock();
     if (rootX.parent != rootY.parent)
     {
         if (rootX.rank < rootY.rank)
@@ -58,7 +58,7 @@ void DisjointSets::unite(std::size_t x, std::size_t y)
         }
         --mNbSets; 
     }
-    coarse_lock.unlock();
+    // coarse_lock.unlock();
 }
 
 bool DisjointSets::same(std::size_t x, std::size_t y) const
