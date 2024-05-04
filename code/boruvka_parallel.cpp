@@ -76,7 +76,6 @@ vector<Edge> MST(Graph &G){
     size_t mstIndexOffset = 0;
     pair<int, int>*local_shortest = new pair<int,int>[number_of_threads*rounded_size];
     vector< int> select_edges(G.edges.size());
-    vector< int> prefix_sum(G.edges.size());
     vector< int> prefix_sum2(G.edges.size());
      vector< int> prefix_sum3(G.nodes.size());
 
@@ -156,8 +155,10 @@ vector<Edge> MST(Graph &G){
         }
         vector<int> selectNewEdges(G.edges.size());
         size_t offset = G.edges.size();
-        auto end_it = std::next(selectNewEdges.begin(), offset);
-        __gnu_parallel::partial_sum(select_edges.begin(), end_it, prefix_sum.begin()); //prefix sum
+        //auto end_it = std::next(selectNewEdges.begin(), offset);
+        vector< int> prefix_sum(G.edges.size());
+
+        __gnu_parallel::partial_sum(select_edges.begin(), select_edges.begin() + offset, prefix_sum.begin()); //prefix sum
 
 
         #pragma omp parallel for
@@ -184,9 +185,9 @@ vector<Edge> MST(Graph &G){
         }
         
          offset = G.edges.size();
-         end_it = std::next(selectNewEdges.begin(), offset);
+         //end_it = std::next(selectNewEdges.begin(), offset);
 
-        __gnu_parallel::partial_sum(selectNewEdges.begin(), end_it, prefix_sum2.begin()); //prefix sum
+        __gnu_parallel::partial_sum(selectNewEdges.begin(), selectNewEdges.begin() + offset, prefix_sum2.begin()); //prefix sum
         vector<Edge> new_edges(prefix_sum2[G.edges.size() - 1]);
             
         #pragma omp parallel for
@@ -219,8 +220,8 @@ vector<Edge> MST(Graph &G){
         }
         
         offset = G.nodes.size();
-         end_it = std::next(selectNewNodes.begin(), offset);
-        __gnu_parallel::partial_sum(selectNewNodes.begin(), end_it, prefix_sum3.begin()); //prefix sum
+         //end_it = std::next(selectNewNodes.begin(), offset);
+        __gnu_parallel::partial_sum(selectNewNodes.begin(), selectNewNodes.begin() + offset, prefix_sum3.begin()); //prefix sum
         vector<size_t> new_nodes(prefix_sum3[G.nodes.size() - 1]);
 
         #pragma omp parallel for 
