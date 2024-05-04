@@ -69,16 +69,22 @@ vector<Edge> MST(Graph &G){
     double mapNewNodes = 0.0;
 
     size_t init_size = G.nodes.size();
+
     vector<Edge> mst_edges(init_size - 1);
     size_t rounded_size = 4096 * ((init_size + 4095) / 4096);
     ds::DisjointSets union_find(init_size);
     size_t mstIndexOffset = 0;
+    pair<int, int>*local_shortest = new pair<int,int>[number_of_threads*rounded_size];
+    vector< int> select_edges(G.edges.size());
+    vector< int> prefix_sum(G.edges.size());
+    vector< int> prefix_sum2(G.edges.size());
+     vector< int> prefix_sum3(G.nodes.size());
+
     while (G.nodes.size() > 1) {
 
         // Find shortest edges for each node.
 
         vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
-        pair<int, int>*local_shortest = new pair<int,int>[number_of_threads*rounded_size];
 
         
         // cout << G.nodes.size() << endl;
@@ -86,20 +92,13 @@ vector<Edge> MST(Graph &G){
         omp_set_num_threads(number_of_threads);
         #pragma omp parallel
         {
-            // vector<pair<int,int>> local_shortest(init_size, { 0, INT_MAX});
 
             const int nthreads = omp_get_num_threads();
             const int ithread = omp_get_thread_num();
 
             
 
-        //    #pragma omp single 
-        //     {
-        //         local_shortest = new pair<int,int>[nthreads*rounded_size];
-                
-        //         for (size_t i = 0; i < nthreads*rounded_size; i ++) local_shortest[i] = make_pair(0, INT_MAX);
-                
-        //     }
+       
         #pragma omp for schedule(static, rounded_size)
             for (size_t i = 0; i < nthreads*rounded_size; i ++) {
                 local_shortest[i] = make_pair(0, INT_MAX);
@@ -127,7 +126,7 @@ vector<Edge> MST(Graph &G){
         double duration = std::chrono::duration<double>(end - start).count();
         timeFindShortestEdges+=duration;
 
-        vector< int> select_edges(G.edges.size());
+        //vector< int> select_edges(G.edges.size());
         auto start2 = std::chrono::high_resolution_clock::now();
 
         omp_set_num_threads(number_of_threads);
@@ -155,9 +154,10 @@ vector<Edge> MST(Graph &G){
                 }
             }
         }
-        
-        vector< int> prefix_sum(G.edges.size());
-        __gnu_parallel::partial_sum(select_edges.begin(), select_edges.end(), prefix_sum.begin()); //prefix sum
+        vector<int> selectNewEdges(G.edges.size());
+        size_t offset = G.edges.size();
+        auto end_it = std::next(selectNewEdges.begin(), offset);
+        __gnu_parallel::partial_sum(select_edges.begin(), end_it, prefix_sum.begin()); //prefix sum
 
 
         #pragma omp parallel for
@@ -174,7 +174,6 @@ vector<Edge> MST(Graph &G){
         addMSt+=duration2;
 
         
-        vector<int> selectNewEdges(G.edges.size());
         
         auto start3 = std::chrono::high_resolution_clock::now();
         
@@ -183,8 +182,11 @@ vector<Edge> MST(Graph &G){
             Edge cur = G.edges[i];
             selectNewEdges[i] = !union_find.same(cur.u, cur.v); //Cross edges only
         }
-        vector< int> prefix_sum2(G.edges.size());
-        __gnu_parallel::partial_sum(selectNewEdges.begin(), selectNewEdges.end(), prefix_sum2.begin()); //prefix sum
+        
+         offset = G.edges.size();
+         end_it = std::next(selectNewEdges.begin(), offset);
+
+        __gnu_parallel::partial_sum(selectNewEdges.begin(), end_it, prefix_sum2.begin()); //prefix sum
         vector<Edge> new_edges(prefix_sum2[G.edges.size() - 1]);
             
         #pragma omp parallel for
@@ -207,7 +209,8 @@ vector<Edge> MST(Graph &G){
     
         
         auto start4 = std::chrono::high_resolution_clock::now();
-        // Only keep nodes who are the representative nodes.
+        
+        //Only keep nodes who are the representative nodes.
         vector<int> selectNewNodes(G.nodes.size());
         #pragma omp parallel for
         for (size_t i = 0; i < G.nodes.size(); i ++){
@@ -215,8 +218,9 @@ vector<Edge> MST(Graph &G){
             selectNewNodes[i] = (union_find.find(cur_node) == cur_node);
         }
         
-        vector< int> prefix_sum3(G.nodes.size());
-        __gnu_parallel::partial_sum(selectNewNodes.begin(), selectNewNodes.end(), prefix_sum3.begin()); //prefix sum
+        offset = G.nodes.size();
+         end_it = std::next(selectNewNodes.begin(), offset);
+        __gnu_parallel::partial_sum(selectNewNodes.begin(), end_it, prefix_sum3.begin()); //prefix sum
         vector<size_t> new_nodes(prefix_sum3[G.nodes.size() - 1]);
 
         #pragma omp parallel for 
