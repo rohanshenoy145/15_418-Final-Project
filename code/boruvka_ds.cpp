@@ -69,9 +69,14 @@ vector<Edge> MST(Graph &G){
     size_t init_size = G.nodes.size();
 
     ds::DisjointSets union_find(init_size);
+    double timeFindShortestEdges = 0.0;
+    double  addMSt = 0.0;
+    double mapNewEdges = 0.0;
+    double mapNewNodes = 0.0;
 
+    
     while (G.nodes.size() > 1) {
-
+        auto start = std::chrono::high_resolution_clock::now();
         // Find shortest edges for each node.
         vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
         for (size_t i = 0; i < G.edges.size(); i ++) {
@@ -82,7 +87,11 @@ vector<Edge> MST(Graph &G){
                 shortest_edges[cur.u] = {i, cur.w };
             }
         }
+        auto end = std::chrono::high_resolution_clock::now();
+        double duration = std::chrono::duration<double>(end - start).count();
+        timeFindShortestEdges+=duration;
 
+        auto start2 = std::chrono::high_resolution_clock::now();
         for (size_t i = 0; i < G.nodes.size(); i ++ ) { 
             size_t u = G.nodes[i];
             Edge shortest_from_u = G.edges[shortest_edges[u].first];
@@ -96,7 +105,11 @@ vector<Edge> MST(Graph &G){
                 union_find.unite(u, v);
             }
         }
+        auto end2 = std::chrono::high_resolution_clock::now();
+        double duration2 = std::chrono::duration<double>(end2 - start2).count();
+        addMSt+=duration2;
 
+        auto start3 = std::chrono::high_resolution_clock::now();
         vector<Edge> new_edges;
         for (size_t i = 0; i < G.edges.size(); i ++ ){
             Edge cur = G.edges[i];
@@ -108,7 +121,11 @@ vector<Edge> MST(Graph &G){
                 new_edges.push_back(cur);
             }
         }
+        auto end3 = std::chrono::high_resolution_clock::now();
+        double duration3 = std::chrono::duration<double>(end3 - start3).count();
+        mapNewEdges+=duration3;
 
+        auto start4 = std::chrono::high_resolution_clock::now();
         // Only keep nodes who are the representative vectors.
         vector<size_t> new_nodes;
         for (size_t i = 0; i < G.nodes.size(); i ++){
@@ -117,14 +134,29 @@ vector<Edge> MST(Graph &G){
                 new_nodes.push_back(cur_node);
             }
         }
+        auto end4 = std::chrono::high_resolution_clock::now();
+        double duration4 = std::chrono::duration<double>(end4 - start4).count();
+        mapNewNodes+=duration4;
+
 
         G.nodes = new_nodes;
         G.edges = new_edges;
     }
+    std::cout << "Total time taken to find minEdges seq: " << timeFindShortestEdges << " seconds" << std::endl;
+    std::cout << "Total time taken to add MST edges seq: " << addMSt << " seconds" << std::endl;
+    std::cout << "Total time taken to map new edges seq: " << mapNewEdges << " seconds" << std::endl;
+    std::cout << "Total time taken to map new nodes seq: " << mapNewNodes << " seconds" << std::endl;
+
+
+
+
+    
+
     return mst_edges;
 }
 
 int main(int argc, char *argv[]) {
+    
     char* inputFilePath = nullptr;
     int opt;
     while ((opt = getopt(argc, argv, "f:")) != -1) {
@@ -160,6 +192,7 @@ int main(int argc, char *argv[]) {
         }
         fclose(fd);
     }
+
 
     Graph G = make_graph(input_edges);
     size_t init_N = G.nodes.size();
