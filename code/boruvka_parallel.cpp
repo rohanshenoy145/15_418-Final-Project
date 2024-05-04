@@ -74,7 +74,7 @@ vector<Edge> MST(Graph &G){
         // Find shortest edges for each node.
 
         vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
-        pair<int, int>*local_shortest;
+        pair<int, int>*local_shortest = new pair<int,int>[number_of_threads*rounded_size];
         
 
         omp_set_num_threads(number_of_threads);
@@ -86,11 +86,17 @@ vector<Edge> MST(Graph &G){
 
             
 
-           #pragma omp single 
-            {
-                local_shortest = new pair<int,int>[nthreads*rounded_size];
-                for (size_t i = 0; i < nthreads*rounded_size; i ++) local_shortest[i] = make_pair(0, INT_MAX);
+        //    #pragma omp single 
+        //     {
+        //         local_shortest = new pair<int,int>[nthreads*rounded_size];
+        //         for (size_t i = 0; i < nthreads*rounded_size; i ++) local_shortest[i] = make_pair(0, INT_MAX);
+        //     }
+            #pragma omp for schedule(static, rounded_size)
+            for (size_t i = 0; i < nthreads*rounded_size; i ++) {
+                local_shortest[i] = make_pair(0, INT_MAX);
             }
+            #pragma omp barrier
+
             #pragma omp for
             for (size_t i = 0; i < G.edges.size(); i++) {
                 Edge cur = G.edges[i];
