@@ -61,6 +61,14 @@ Graph make_graph(std::vector<Edge>&input_edges) {
     return G;
 }
 
+struct shortEdge {
+    int index;
+    int weight;
+    std::mutex mtx; // mutex for locking access to the struct's data
+
+    // Constructor to initialize the struct members
+    shortEdge() : index(0), weight(INT_MAX) {}
+};
 
 vector<Edge> MST(Graph &G){
     double timeFindShortestEdges = 0.0;
@@ -74,7 +82,7 @@ vector<Edge> MST(Graph &G){
     size_t rounded_size = 4096 * ((init_size + 4095) / 4096);
     ds::DisjointSets union_find(init_size);
     size_t mstIndexOffset = 0;
-    pair<int, int>*local_shortest = new pair<int,int>[number_of_threads*rounded_size];
+    // pair<int, int>*local_shortest = new pair<int,int>[number_of_threads*rounded_size];
     vector< int> select_edges(G.edges.size());
     vector< int> prefix_sum2(G.edges.size());
     vector< int> prefix_sum3(G.nodes.size());
@@ -85,40 +93,21 @@ vector<Edge> MST(Graph &G){
 
         // Find shortest edges for each node.
 
-        vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
+        vector<shortEdge> shortest_edges(init_size);
 
         auto start = std::chrono::high_resolution_clock::now();
+
         omp_set_num_threads(number_of_threads);
-        #pragma omp parallel
-        {
-
-            const int nthreads = omp_get_num_threads();
-            const int ithread = omp_get_thread_num();
-            // rounded_size = 4096 * ((G.nodes.size() + 4095) / 4096);
-            #pragma omp for schedule(static, rounded_size)
-            for (size_t i = 0; i < nthreads*rounded_size; i ++) {
-                local_shortest[i] = make_pair(0, INT_MAX);
-            }
-            #pragma omp barrier
-
-            #pragma omp for 
-            for (size_t i = 0; i < G.edges.size(); i++) {
-                select_edges[i] = 0;
-                Edge cur = G.edges[i];
-                if (cur.w < local_shortest[(ithread*rounded_size) + cur.u].second) {
-                    local_shortest[(ithread*rounded_size) + cur.u] = make_pair(i, cur.w);
-                }
-            }
+        #pragma omp parallel for
+        for (size_t i = 0; i < G.edges.size(); i ++) {
+            Edge cur = G.edges[i];
+            shortest_edges[cur.u].mtx.lock();
             
-            #pragma omp for 
-            for (size_t i = 0; i < G.edges.size(); i ++ ) {
-                for (int t = 0 ; t < nthreads; t++ ) {
-                    if (local_shortest[(rounded_size*t) + G.edges[i].u].second < shortest_edges[ G.edges[i].u].second) {
-                        shortest_edges[G.edges[i].u] = local_shortest[(rounded_size*t) + G.edges[i].u];
-                    }
-                }
+            if (cur.w < shortest_edges[cur.u].weight) {
+                shortest_edges[cur.u].index = i;
+                shortest_edges[cur.u].index = cur.w;
             }
-
+            shortest_edges[cur.u].mtx.unlock();
         }
        
         auto end = std::chrono::high_resolution_clock::now();
@@ -134,10 +123,10 @@ vector<Edge> MST(Graph &G){
             #pragma omp for 
             for (size_t i = 0; i < G.nodes.size(); i ++ ) { 
                 size_t u = G.nodes[i];
-                Edge shortest_from_u = G.edges[shortest_edges[u].first];
-                int id = shortest_edges[u].first; //edge id
+                Edge shortest_from_u = G.edges[shortest_edges[u].index];
+                int id = shortest_edges[u].index; //edge id
                 size_t v = shortest_from_u.v;
-                Edge shortest_from_v = G.edges[shortest_edges[v].first];
+                Edge shortest_from_v = G.edges[shortest_edges[v].index];
                 // Ensure not a duplicate edge.
                 if (u != shortest_from_v.v || (u == shortest_from_v.v && u < v)){
                     select_edges[id] = 1; // select edge 
