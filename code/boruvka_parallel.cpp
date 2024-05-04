@@ -65,6 +65,7 @@ Graph make_graph(std::vector<Edge>&input_edges) {
 vector<Edge> MST(Graph &G){
 
     size_t init_size = G.nodes.size();
+    size_t rounded_size = 4096 * ((init_size + 4095) / 4096);
     vector<Edge> mst_edges;
     
     ds::DisjointSets union_find(init_size);
@@ -87,22 +88,22 @@ vector<Edge> MST(Graph &G){
 
            #pragma omp single 
             {
-                local_shortest = new pair<int,int>[nthreads*init_size];
-                for (size_t i = 0; i < nthreads*init_size; i ++) local_shortest[i] = make_pair(0, INT_MAX);
+                local_shortest = new pair<int,int>[nthreads*rounded_size];
+                for (size_t i = 0; i < nthreads*rounded_size; i ++) local_shortest[i] = make_pair(0, INT_MAX);
             }
             #pragma omp for
             for (size_t i = 0; i < G.edges.size(); i++) {
                 Edge cur = G.edges[i];
-                if (cur.w < local_shortest[(ithread*init_size) + cur.u].second) {
-                    local_shortest[(ithread*init_size) + cur.u] = make_pair(i, cur.w);
+                if (cur.w < local_shortest[(ithread*rounded_size) + cur.u].second) {
+                    local_shortest[(ithread*rounded_size) + cur.u] = make_pair(i, cur.w);
                 }
             }
             
             #pragma omp for
             for (size_t i = 0; i < init_size; i ++ ) {
                 for (int t = 0 ; t < nthreads; t++ ) {
-                    if (local_shortest[(init_size*t) + i].second < shortest_edges[i].second) {
-                        shortest_edges[i] = local_shortest[(init_size*t) + i];
+                    if (local_shortest[(rounded_size*t) + i].second < shortest_edges[i].second) {
+                        shortest_edges[i] = local_shortest[(rounded_size*t) + i];
                     }
                 }
             }
