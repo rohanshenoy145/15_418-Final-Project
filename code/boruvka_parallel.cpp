@@ -9,7 +9,7 @@
 #include <fstream>
 #include <string>
 #include <getopt.h>
-#include <LockFreeDisjointSets.h>
+#include <DisjointSets.h>
 #include <omp.h>
 #include <chrono>
 #include <mutex>
@@ -145,7 +145,11 @@ vector<Edge> MST(Graph &G){
             if (u != shortest_from_v.v || (u == shortest_from_v.v && u < v)){
                 mst_private_edge[omp_get_thread_num()].push_back(shortest_from_u);// select edge 
                 privateCount[omp_get_thread_num()]++; 
-                union_find.unite(u, v);  
+                #pragma omp critical
+                {
+                    union_find.unite(u, v);  
+                }
+                
                 
             }
         }
@@ -202,8 +206,11 @@ vector<Edge> MST(Graph &G){
             {
 
                 Edge cur = G.edges[i];
+                #pragma omp critical
+                {
                 cur.u = union_find.find(cur.u);
                 cur.v = union_find.find(cur.v);
+                }
                 new_edges[prefix_sum2[i] - 1] = cur;
             }
 
@@ -222,7 +229,10 @@ vector<Edge> MST(Graph &G){
         #pragma omp parallel for
         for (size_t i = 0; i < G.nodes.size(); i ++){
             size_t cur_node = G.nodes[i];
+            #pragma omp critical
+            {
             selectNewNodes[i] = (union_find.find(cur_node) == cur_node);
+            }
         }
         
         offset = G.nodes.size();
@@ -249,10 +259,10 @@ vector<Edge> MST(Graph &G){
     
     }
 
-    std::cout << "Total time taken to find minEdges parallel: " << timeFindShortestEdges << " seconds" << std::endl;
-    std::cout << "Total time taken to add MST edges parallel: " << addMSt << " seconds" << std::endl;
-    std::cout << "Total time taken to map new edges paralllel: " << mapNewEdges << " seconds" << std::endl;
-    std::cout << "Total time taken to map new nodes parallel: " << mapNewNodes << " seconds" << std::endl;
+    // std::cout << "Total time taken to find minEdges parallel: " << timeFindShortestEdges << " seconds" << std::endl;
+    // std::cout << "Total time taken to add MST edges parallel: " << addMSt << " seconds" << std::endl;
+    // std::cout << "Total time taken to map new edges paralllel: " << mapNewEdges << " seconds" << std::endl;
+    // std::cout << "Total time taken to map new nodes parallel: " << mapNewNodes << " seconds" << std::endl;
     
     return mst_edges;
 }
