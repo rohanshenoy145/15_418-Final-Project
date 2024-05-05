@@ -83,7 +83,7 @@ vector<Edge> MST(Graph &G){
 
     size_t init_size = G.nodes.size();
 
-    vector<Edge> mst_edges(init_size - 1);
+    vector<Edge> mst_edges;
     // size_t rounded_size = 4096 * ((init_size + 4095) / 4096);
     ds::DisjointSets union_find(init_size);
     size_t mstIndexOffset = 0;
@@ -135,8 +135,6 @@ vector<Edge> MST(Graph &G){
             }
         }
 
-
-       
         auto end = std::chrono::high_resolution_clock::now();
         double duration = std::chrono::duration<double>(end - start).count();
         timeFindShortestEdges+=duration;
@@ -144,48 +142,67 @@ vector<Edge> MST(Graph &G){
         //vector< int> select_edges(G.edges.size());
         auto start2 = std::chrono::high_resolution_clock::now();
 
-        omp_set_num_threads(number_of_threads);
-        #pragma omp parallel
-        {
-            #pragma omp for 
-            for (size_t i = 0; i < G.nodes.size(); i ++ ) { 
-                size_t u = G.nodes[i];
-                Edge shortest_from_u = G.edges[shortest_edges[u].first];
-                int id = shortest_edges[u].first; //edge id
-                size_t v = shortest_from_u.v;
-                Edge shortest_from_v = G.edges[shortest_edges[v].first];
-                // Ensure not a duplicate edge.
-                if (u != shortest_from_v.v || (u == shortest_from_v.v && u < v)){
-                    select_edges[id] = 1; // select edge 
-                    union_find.unite(u, v);  
-                    
-                }
+        std::vector<std::vector<Edge>> mst_private_edge(number_of_threads);
+        std::vector<int> privateCount(number_of_threads, 0); // Initialize all elements to 0
+        
+        #pragma omp parallel for 
+        for (size_t i = 0; i < G.nodes.size(); i ++ ) {
+            
+            size_t u = G.nodes[i];
+            Edge shortest_from_u = G.edges[shortest_edges[u].first];
+            size_t v = shortest_from_u.v;
+            Edge shortest_from_v = G.edges[shortest_edges[v].first];
+            // Ensure not a duplicate edge.
+            if (u != shortest_from_v.v || (u == shortest_from_v.v && u < v)){
+                mst_private_edge[omp_get_thread_num()].push_back(shortest_from_u);// select edge 
+                privateCount[omp_get_thread_num()]++; 
+                union_find.unite(u, v);  
+                
             }
         }
-        size_t offset = G.edges.size();
-        vector< int> prefix_sum(G.edges.size());
+    
+        
+        vector<int> prefixSum(number_of_threads);
+        __gnu_parallel::partial_sum(privateCount.begin(), privateCount.end(), prefixSum.begin()); //prefix sum
+        vector <Edge> mst_edges_add(prefixSum[number_of_threads - 1]);
 
-        __gnu_parallel::partial_sum(select_edges.begin(), select_edges.begin() + offset, prefix_sum.begin()); //prefix sum
-
-        // vector<int> selectNewEdges(G.edges.size());
-        #pragma omp parallel for
-        for(size_t i = 0; i < G.edges.size(); i++ )
-        {
-            if(select_edges[i])
+         #pragma omp parallel
+         {
+            int threadId = omp_get_thread_num();
+            int startIdx;
+            if(threadId!=0)
             {
-                mst_edges[mstIndexOffset + prefix_sum[i] - 1] = G.edges[i];
+                startIdx = prefixSum[threadId - 1];
             }
-            Edge cur = G.edges[i];
-            selectNewEdges[i] = !union_find.same(cur.u, cur.v); //Cross edges only
-        }
-        mstIndexOffset += prefix_sum[G.edges.size() - 1];
+            else{
+                startIdx = 0;
+            }
+            for(int i = startIdx; i < startIdx + privateCount[threadId]; i++)
+            {
+                mst_edges_add[i] = mst_private_edge[threadId][i-startIdx];
+            }
+
+
+         }
+         mst_edges.insert(mst_edges.end(), mst_edges_add.begin(), mst_edges_add.end());
+
         auto end2 = std::chrono::high_resolution_clock::now();
         double duration2 = std::chrono::duration<double>(end2 - start2).count();
         addMSt+=duration2;
-       
         auto start3 = std::chrono::high_resolution_clock::now();
+
+        #pragma omp parallel for
+        for(size_t i = 0; i < G.edges.size(); i++ )
+        {
+            Edge cur = G.edges[i];
+            selectNewEdges[i] = !union_find.same(cur.u, cur.v); //Cross edges only
+        }
+
+        
+       
    
-         offset = G.edges.size();
+         size_t offset = G.edges.size();
+         //end_it = std::next(selectNewEdges.begin(), offset);
 
         __gnu_parallel::partial_sum(selectNewEdges.begin(), selectNewEdges.begin() + offset, prefix_sum2.begin()); //prefix sum
         vector<Edge> new_edges(prefix_sum2[G.edges.size() - 1]);
@@ -194,6 +211,7 @@ vector<Edge> MST(Graph &G){
         for (size_t i = 0; i < G.edges.size(); i ++ ){
             if(selectNewEdges[i])
             {
+
                 Edge cur = G.edges[i];
                 cur.u = union_find.find(cur.u);
                 cur.v = union_find.find(cur.v);
@@ -206,6 +224,8 @@ vector<Edge> MST(Graph &G){
         double duration3 = std::chrono::duration<double>(end3 - start3).count();
         mapNewEdges+=duration3;
             
+    
+        
         auto start4 = std::chrono::high_resolution_clock::now();
         
         //Only keep nodes who are the representative nodes.
