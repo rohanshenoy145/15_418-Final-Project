@@ -44,13 +44,13 @@ Graph make_graph(std::vector<Edge>&input_edges) {
     size_t max_node = 0;
     for (size_t i = 0; i < input_edges.size(); i ++) {
         Edge e = input_edges[i];
-        e.label = i;
+        e.label = 2*i;
         edge_list.push_back(e);
         Edge back;
         back.u = e.v;
         back.v = e.u;
         back.w = e.w;
-        back.label = i;
+        back.label = (2*i )+ 1;
         edge_list.push_back(back);
         max_node = max(max_node, max(e.u,e.v));
     }
@@ -120,11 +120,6 @@ vector<Edge> MST(Graph &G){
         double duration = std::chrono::duration<double>(end - start).count();
         timeFindShortestEdges+=duration;
 
-        // vector< int> select_edges(G.edges.size());
-        // #pragma parallel for
-        // for (size_t i = 0; i < G.edges.size(); i ++ ){
-        //     select_edges[i] = 0;
-        // }
         auto start2 = std::chrono::high_resolution_clock::now();
 
         omp_set_num_threads(number_of_threads);
@@ -147,16 +142,9 @@ vector<Edge> MST(Graph &G){
         }
         size_t offset = G.edges.size();
 
-        // __gnu_parallel::partial_sum(select_edges.begin(), select_edges.begin() + offset, prefix_sum.begin()); //prefix sum
-
-        // vector<int> selectNewEdges(G.edges.size());
         #pragma omp parallel for
         for(size_t i = 0; i < G.edges.size(); i++ )
         {
-            // if(select_edges[i])
-            // {
-            //     mst_edges[mstIndexOffset + prefix_sum[i] - 1] = G.edges[i];
-            // }
             Edge cur = G.edges[i];
             selectNewEdges[i] = !union_find.same(cur.u, cur.v); //Cross edges only
         }
