@@ -9,7 +9,7 @@
 #include <fstream>
 #include <string>
 #include <getopt.h>
-#include <ParallelDisjointSets.h>
+#include <LockFreeDisjointSets.h>
 #include <omp.h>
 #include <chrono>
 #include <mutex>
@@ -83,17 +83,16 @@ vector<Edge> MST(Graph &G){
 
     size_t init_size = G.nodes.size();
 
-    vector<Edge> mst_edges(init_size - 1);
+    vector<Edge> mst_edges;
     // size_t rounded_size = 4096 * ((init_size + 4095) / 4096);
     ds::DisjointSets union_find(init_size);
-    // size_t mstIndexOffset = 0;
+    size_t mstIndexOffset = 0;
     // pair<int, int>*local_shortest = new pair<int,int>[number_of_threads*rounded_size];
     vector< int> select_edges(G.edges.size());
     vector< int> prefix_sum2(G.edges.size());
     vector< int> prefix_sum3(G.nodes.size());
     vector<int> selectNewEdges(G.edges.size());
 
-    omp_set_num_threads(number_of_threads);
 
     while (G.nodes.size() > 1) {
 
@@ -105,6 +104,7 @@ vector<Edge> MST(Graph &G){
         __gnu_parallel::sort(G.edges.begin(), G.edges.end(), compareBySource);
         vector<int> shifts(G.edges.size());
         shifts[0] = 0;
+        omp_set_num_threads(number_of_threads);
         #pragma omp parallel for
         for (size_t i = 1; i < G.edges.size(); i ++){
             shifts[i] = shifts[i-1] != shifts[i];
@@ -113,6 +113,7 @@ vector<Edge> MST(Graph &G){
         __gnu_parallel::partial_sum(shifts.begin(), shifts.end(), pSum.begin()); 
         vector<int> offsets(G.nodes.size()+1);
         offsets[0] = 0;
+        omp_set_num_threads(number_of_threads);
         #pragma omp parallel for 
         for (size_t i = 1; i < G.edges.size(); i++){
             if (shifts[i]){
@@ -121,7 +122,8 @@ vector<Edge> MST(Graph &G){
         }
         offsets[G.nodes.size()] = G.edges.size();
         vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
-        #pragma omp parallel for 
+        omp_set_num_threads(number_of_threads);
+        #pragma omp parallel for
         for (size_t i = 0; i < G.nodes.size(); i ++ ){
             for (int j = offsets[i]; j < offsets[i+1]; j ++){
                 select_edges[j] = 0;
@@ -133,7 +135,6 @@ vector<Edge> MST(Graph &G){
             }
         }
 
-       
         auto end = std::chrono::high_resolution_clock::now();
         double duration = std::chrono::duration<double>(end - start).count();
         timeFindShortestEdges+=duration;
@@ -256,7 +257,6 @@ vector<Edge> MST(Graph &G){
 
         G.nodes = new_nodes;
         G.edges = new_edges;
-    
     
     }
 
