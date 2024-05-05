@@ -79,10 +79,10 @@ vector<Edge> MST(Graph &G){
     size_t init_size = G.nodes.size();
 
     vector<Edge> mst_edges;
-    size_t rounded_size = 4096 * ((init_size + 4095) / 4096);
+    // size_t rounded_size = 4096 * ((init_size + 4095) / 4096);
     ds::DisjointSets union_find(init_size);
-    size_t mstIndexOffset = 0;
-    pair<int, int>*local_shortest = new pair<int,int>[number_of_threads*rounded_size];
+    // size_t mstIndexOffset = 0;
+    // pair<int, int>*local_shortest = new pair<int,int>[number_of_threads*rounded_size];
     vector< int> select_edges(G.edges.size());
     vector< int> prefix_sum2(G.edges.size());
      vector< int> prefix_sum3(G.nodes.size());

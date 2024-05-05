@@ -25,12 +25,10 @@ std::size_t DisjointSets::find(std::size_t y) const
 {
 
     // Find the root
-    // std::cout<<"find "<< y<<std::endl;
     size_t t = mNodes[y].load()->parent.load();
     while (mNodes[y].load()->parent.load() != y){
         (mNodes[y].load()->parent).compare_exchange_weak(t, mNodes[t].load()->parent.load());
         y = mNodes[t].load()->parent.load();
-        // std::cout<<"find"<<std::endl;
     }
    
     return y;
