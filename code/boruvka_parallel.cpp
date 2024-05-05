@@ -9,7 +9,7 @@
 #include <fstream>
 #include <string>
 #include <getopt.h>
-#include <LockFreeDisjointSets.h>
+#include <ParallelDisjointSets.h>
 #include <omp.h>
 #include <chrono>
 #include <mutex>
@@ -123,7 +123,7 @@ vector<Edge> MST(Graph &G){
         offsets[G.nodes.size()] = G.edges.size();
         vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
         omp_set_num_threads(number_of_threads);
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(dynamic)
         for (size_t i = 0; i < G.nodes.size(); i ++ ){
             for (int j = offsets[i]; j < offsets[i+1]; j ++){
                 select_edges[j] = 0;
