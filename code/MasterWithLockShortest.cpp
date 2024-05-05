@@ -88,7 +88,8 @@ vector<Edge> MST(Graph &G){
      vector< int> prefix_sum3(G.nodes.size());
              vector<int> selectNewEdges(G.edges.size());
 
-
+    omp_set_num_threads(number_of_threads);
+    
     while (G.nodes.size() > 1) {
 
         // Find shortest edges for each node.
@@ -98,7 +99,7 @@ vector<Edge> MST(Graph &G){
         vector<shortEdge> shortest_edges(init_size);
 
         auto start = std::chrono::high_resolution_clock::now();
-        omp_set_num_threads(number_of_threads);
+        
        #pragma omp parallel for
         for (size_t i = 0; i < G.edges.size(); i ++) {
             Edge cur = G.edges[i];

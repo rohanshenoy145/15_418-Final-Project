@@ -93,6 +93,7 @@ vector<Edge> MST(Graph &G){
     vector< int> prefix_sum3(G.nodes.size());
     vector<int> selectNewEdges(G.edges.size());
 
+    omp_set_num_threads(number_of_threads);
 
     while (G.nodes.size() > 1) {
 
@@ -104,7 +105,6 @@ vector<Edge> MST(Graph &G){
         __gnu_parallel::sort(G.edges.begin(), G.edges.end(), compareBySource);
         vector<int> shifts(G.edges.size());
         shifts[0] = 0;
-        omp_set_num_threads(number_of_threads);
         #pragma omp parallel for
         for (size_t i = 1; i < G.edges.size(); i ++){
             shifts[i] = shifts[i-1] != shifts[i];
@@ -113,7 +113,6 @@ vector<Edge> MST(Graph &G){
         __gnu_parallel::partial_sum(shifts.begin(), shifts.end(), pSum.begin()); 
         vector<int> offsets(G.nodes.size()+1);
         offsets[0] = 0;
-        omp_set_num_threads(number_of_threads);
         #pragma omp parallel for 
         for (size_t i = 1; i < G.edges.size(); i++){
             if (shifts[i]){
@@ -122,7 +121,6 @@ vector<Edge> MST(Graph &G){
         }
         offsets[G.nodes.size()] = G.edges.size();
         vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
-        omp_set_num_threads(number_of_threads);
         #pragma omp parallel for 
         for (size_t i = 0; i < G.nodes.size(); i ++ ){
             for (int j = offsets[i]; j < offsets[i+1]; j ++){
