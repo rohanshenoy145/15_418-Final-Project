@@ -28,6 +28,7 @@ struct Edge {
     size_t u;
     size_t v;
     int w;
+    size_t label;
 
    // Edge() : u(0), v(0), w(0) {}
 };
@@ -43,11 +44,13 @@ Graph make_graph(std::vector<Edge>&input_edges) {
     size_t max_node = 0;
     for (size_t i = 0; i < input_edges.size(); i ++) {
         Edge e = input_edges[i];
+        e.label = i;
         edge_list.push_back(e);
         Edge back;
         back.u = e.v;
         back.v = e.u;
         back.w = e.w;
+        back.label = i;
         edge_list.push_back(back);
         max_node = max(max_node, max(e.u,e.v));
     }
@@ -65,6 +68,7 @@ struct shortEdge {
     int index;
     int weight;
     std::mutex mtx; // mutex for locking access to the struct's data
+    size_t label;
 
     // Constructor to initialize the struct members
     shortEdge() : index(0), weight(INT_MAX) {}
@@ -77,11 +81,12 @@ vector<Edge> MST(Graph &G){
     double mapNewNodes = 0.0;
 
     size_t init_size = G.nodes.size();
+    vector<Edge> initial_edges = G.edges;
 
     vector<Edge> mst_edges(init_size - 1);
-    size_t rounded_size = 4096 * ((init_size + 4095) / 4096);
+    // size_t rounded_size = 4096 * ((init_size + 4095) / 4096);
     ds::DisjointSets union_find(init_size);
-    size_t mstIndexOffset = 0;
+    // size_t mstIndexOffset = 0;
     vector< int> select_edges(G.edges.size());
     vector< int> prefix_sum(G.edges.size());
     vector< int> prefix_sum2(G.edges.size());
@@ -106,6 +111,7 @@ vector<Edge> MST(Graph &G){
             if (cur.w < shortest_edges[cur.u].weight) {
                 shortest_edges[cur.u].index = i;
                 shortest_edges[cur.u].weight = cur.w;
+                shortest_edges[cur.u].label = cur.label;
             }
             shortest_edges[cur.u].mtx.unlock();
         }
@@ -115,10 +121,10 @@ vector<Edge> MST(Graph &G){
         timeFindShortestEdges+=duration;
 
         // vector< int> select_edges(G.edges.size());
-        #pragma parallel for
-        for (size_t i = 0; i < G.edges.size(); i ++ ){
-            select_edges[i] = 0;
-        }
+        // #pragma parallel for
+        // for (size_t i = 0; i < G.edges.size(); i ++ ){
+        //     select_edges[i] = 0;
+        // }
         auto start2 = std::chrono::high_resolution_clock::now();
 
         omp_set_num_threads(number_of_threads);
@@ -128,7 +134,7 @@ vector<Edge> MST(Graph &G){
             for (size_t i = 0; i < G.nodes.size(); i ++ ) { 
                 size_t u = G.nodes[i];
                 Edge shortest_from_u = G.edges[shortest_edges[u].index];
-                int id = shortest_edges[u].index; //edge id
+                int id = shortest_edges[u].label; //edge id
                 size_t v = shortest_from_u.v;
                 Edge shortest_from_v = G.edges[shortest_edges[v].index];
                 // Ensure not a duplicate edge.
@@ -141,20 +147,20 @@ vector<Edge> MST(Graph &G){
         }
         size_t offset = G.edges.size();
 
-        __gnu_parallel::partial_sum(select_edges.begin(), select_edges.begin() + offset, prefix_sum.begin()); //prefix sum
+        // __gnu_parallel::partial_sum(select_edges.begin(), select_edges.begin() + offset, prefix_sum.begin()); //prefix sum
 
         // vector<int> selectNewEdges(G.edges.size());
         #pragma omp parallel for
         for(size_t i = 0; i < G.edges.size(); i++ )
         {
-            if(select_edges[i])
-            {
-                mst_edges[mstIndexOffset + prefix_sum[i] - 1] = G.edges[i];
-            }
+            // if(select_edges[i])
+            // {
+            //     mst_edges[mstIndexOffset + prefix_sum[i] - 1] = G.edges[i];
+            // }
             Edge cur = G.edges[i];
             selectNewEdges[i] = !union_find.same(cur.u, cur.v); //Cross edges only
         }
-        mstIndexOffset += prefix_sum[G.edges.size() - 1];
+        // mstIndexOffset += prefix_sum[G.edges.size() - 1];
         auto end2 = std::chrono::high_resolution_clock::now();
         double duration2 = std::chrono::duration<double>(end2 - start2).count();
         addMSt+=duration2;
@@ -215,6 +221,17 @@ vector<Edge> MST(Graph &G){
         G.edges = new_edges;
     
     }
+
+    __gnu_parallel::partial_sum(select_edges.begin(), select_edges.end(), prefix_sum.begin()); //prefix sum
+    #pragma parallel for
+    for(size_t i = 0; i < initial_edges.size(); i++ )
+    {
+        if(select_edges[i])
+        {
+            mst_edges[prefix_sum[i] - 1] = initial_edges[i];
+        }
+    }
+
 
     std::cout << "Total time taken to find minEdges parallel: " << timeFindShortestEdges << " seconds" << std::endl;
     std::cout << "Total time taken to add MST edges parallel: " << addMSt << " seconds" << std::endl;
