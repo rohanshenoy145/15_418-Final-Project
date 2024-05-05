@@ -82,8 +82,8 @@ vector<Edge> MST(Graph &G){
     size_t rounded_size = 4096 * ((init_size + 4095) / 4096);
     ds::DisjointSets union_find(init_size);
     size_t mstIndexOffset = 0;
-    // pair<int, int>*local_shortest = new pair<int,int>[number_of_threads*rounded_size];
-    vector< int> select_edges(G.edges.size());
+    
+    vector< int> prefix_sum(G.edges.size());
     vector< int> prefix_sum2(G.edges.size());
     vector< int> prefix_sum3(G.nodes.size());
     vector<int> selectNewEdges(G.edges.size());
@@ -105,7 +105,7 @@ vector<Edge> MST(Graph &G){
             
             if (cur.w < shortest_edges[cur.u].weight) {
                 shortest_edges[cur.u].index = i;
-                shortest_edges[cur.u].index = cur.w;
+                shortest_edges[cur.u].weight = cur.w;
             }
             shortest_edges[cur.u].mtx.unlock();
         }
@@ -114,7 +114,7 @@ vector<Edge> MST(Graph &G){
         double duration = std::chrono::duration<double>(end - start).count();
         timeFindShortestEdges+=duration;
 
-        //vector< int> select_edges(G.edges.size());
+        vector< int> select_edges(G.edges.size());
         auto start2 = std::chrono::high_resolution_clock::now();
 
         omp_set_num_threads(number_of_threads);
@@ -136,7 +136,6 @@ vector<Edge> MST(Graph &G){
             }
         }
         size_t offset = G.edges.size();
-        vector< int> prefix_sum(G.edges.size());
 
         __gnu_parallel::partial_sum(select_edges.begin(), select_edges.begin() + offset, prefix_sum.begin()); //prefix sum
 
