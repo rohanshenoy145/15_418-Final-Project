@@ -61,6 +61,19 @@ Graph make_graph(std::vector<Edge>&input_edges) {
     return G;
 }
 
+// struct shortEdge {
+//     int index;
+//     int weight;
+//     std::mutex mtx; // mutex for locking access to the struct's data
+
+//     // Constructor to initialize the struct members
+//     shortEdge() : index(0), weight(INT_MAX) {}
+// };
+
+bool compareBySource(const Edge& a, const Edge& b) {
+    return a.u < b.u;
+}
+
 
 vector<Edge> MST(Graph &G){
     double timeFindShortestEdges = 0.0;
@@ -71,10 +84,10 @@ vector<Edge> MST(Graph &G){
     size_t init_size = G.nodes.size();
 
     vector<Edge> mst_edges(init_size - 1);
-    size_t rounded_size = 4096 * ((init_size + 4095) / 4096);
+    // size_t rounded_size = 4096 * ((init_size + 4095) / 4096);
     ds::DisjointSets union_find(init_size);
     size_t mstIndexOffset = 0;
-    pair<int, int>*local_shortest = new pair<int,int>[number_of_threads*rounded_size];
+    // pair<int, int>*local_shortest = new pair<int,int>[number_of_threads*rounded_size];
     vector< int> select_edges(G.edges.size());
     vector< int> prefix_sum2(G.edges.size());
     vector< int> prefix_sum3(G.nodes.size());
@@ -85,41 +98,60 @@ vector<Edge> MST(Graph &G){
 
         // Find shortest edges for each node.
 
-        vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
-
+        // vector<shortEdge> shortest_edges(init_size);
         auto start = std::chrono::high_resolution_clock::now();
+
+        __gnu_parallel::sort(G.edges.begin(), G.edges.end(), compareBySource);
+        vector<int> shifts(G.edges.size());
+        shifts[0] = 0;
         omp_set_num_threads(number_of_threads);
-        #pragma omp parallel
-        {
-
-            const int nthreads = omp_get_num_threads();
-            const int ithread = omp_get_thread_num();
-            // rounded_size = 4096 * ((G.nodes.size() + 4095) / 4096);
-            #pragma omp for schedule(static, rounded_size)
-            for (size_t i = 0; i < nthreads*rounded_size; i ++) {
-                local_shortest[i] = make_pair(0, INT_MAX);
-            }
-            #pragma omp barrier
-
-            #pragma omp for 
-            for (size_t i = 0; i < G.edges.size(); i++) {
-                select_edges[i] = 0;
-                Edge cur = G.edges[i];
-                if (cur.w < local_shortest[(ithread*rounded_size) + cur.u].second) {
-                    local_shortest[(ithread*rounded_size) + cur.u] = make_pair(i, cur.w);
-                }
-            }
-            
-            #pragma omp for 
-            for (size_t i = 0; i < G.edges.size(); i ++ ) {
-                for (int t = 0 ; t < nthreads; t++ ) {
-                    if (local_shortest[(rounded_size*t) + G.edges[i].u].second < shortest_edges[ G.edges[i].u].second) {
-                        shortest_edges[G.edges[i].u] = local_shortest[(rounded_size*t) + G.edges[i].u];
-                    }
-                }
-            }
-
+        #pragma omp parallel for
+        for (size_t i = 1; i < G.edges.size(); i ++){
+            shifts[i] = shifts[i-1] != shifts[i];
         }
+        vector<int> pSum(G.edges.size());
+        __gnu_parallel::partial_sum(shifts.begin(), shifts.end(), pSum.begin()); 
+        vector<int> offsets(G.nodes.size()+1);
+        offsets[0] = 0;
+        omp_set_num_threads(number_of_threads);
+        #pragma omp parallel for 
+        for (size_t i = 1; i < G.edges.size(); i++){
+            if (shifts[i]){
+                offsets[pSum[i]] = i;
+            }
+        }
+        offsets[G.nodes.size()] = G.edges.size();
+        vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
+        omp_set_num_threads(number_of_threads);
+        #pragma omp parallel for
+        for (size_t i = 0; i < G.nodes.size(); i ++ ){
+            for (int j = offsets[i]; j < offsets[i+1]; j ++){
+                select_edges[j] = 0;
+                Edge cur = G.edges[j];
+                pair<int, int> shortest = shortest_edges[cur.u];
+                if (cur.w < shortest.second) {
+                    shortest_edges[cur.u] = {j, cur.w };
+                }
+            }
+        }
+
+        // vector< int> select_edges(G.edges.size());
+
+
+        // omp_set_num_threads(number_of_threads);
+        // #pragma omp parallel for
+        // for (size_t i = 0; i < G.edges.size(); i ++) {
+        //     // Edge cur = G.edges[i];
+        //     select_edges[i] = 0;
+        //     shortest_edges[G.edges[i].u].mtx.lock();
+            
+        //     if (G.edges[i].w < shortest_edges[G.edges[i].u].weight) {
+        //         shortest_edges[G.edges[i].u].index = i;
+        //         shortest_edges[G.edges[i].u].weight = G.edges[i].w;
+        //     }
+        //     shortest_edges[G.edges[i].u].mtx.unlock();
+        // }
+
        
         auto end = std::chrono::high_resolution_clock::now();
         double duration = std::chrono::duration<double>(end - start).count();
