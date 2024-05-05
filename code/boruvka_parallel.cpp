@@ -9,7 +9,7 @@
 #include <fstream>
 #include <string>
 #include <getopt.h>
-#include <LockFreeDisjointSets.h>
+#include <ParallelDisjointSets.h>
 #include <omp.h>
 #include <chrono>
 #include <mutex>
@@ -86,7 +86,7 @@ vector<Edge> MST(Graph &G){
     vector<Edge> mst_edges(init_size - 1);
     // size_t rounded_size = 4096 * ((init_size + 4095) / 4096);
     ds::DisjointSets union_find(init_size);
-    size_t mstIndexOffset = 0;
+    // size_t mstIndexOffset = 0;
     // pair<int, int>*local_shortest = new pair<int,int>[number_of_threads*rounded_size];
     vector< int> select_edges(G.edges.size());
     vector< int> prefix_sum2(G.edges.size());
@@ -123,7 +123,7 @@ vector<Edge> MST(Graph &G){
         offsets[G.nodes.size()] = G.edges.size();
         vector<pair<int, int>> shortest_edges(init_size, { 0, INT_MAX});
         omp_set_num_threads(number_of_threads);
-        #pragma omp parallel for schedule(dynamic)
+        #pragma omp parallel for
         for (size_t i = 0; i < G.nodes.size(); i ++ ){
             for (int j = offsets[i]; j < offsets[i+1]; j ++){
                 select_edges[j] = 0;
