@@ -113,7 +113,7 @@ vector<Edge> MST(Graph &G){
         vector<Edge> new_edges;
         for (size_t i = 0; i < G.edges.size(); i ++ ){
             Edge cur = G.edges[i];
-            // Cross edges only
+            // Cross edges only 
             if (!union_find.same(cur.u, cur.v)) {
                 // Map endpoints to their new representative nodes
                 cur.u = union_find.find(cur.u);
@@ -146,8 +146,6 @@ vector<Edge> MST(Graph &G){
     std::cout << "Total time taken to add MST edges seq: " << addMSt << " seconds" << std::endl;
     std::cout << "Total time taken to map new edges seq: " << mapNewEdges << " seconds" << std::endl;
     std::cout << "Total time taken to map new nodes seq: " << mapNewNodes << " seconds" << std::endl;
-
-
 
 
     

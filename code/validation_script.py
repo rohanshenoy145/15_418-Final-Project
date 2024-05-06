@@ -22,7 +22,7 @@ def read_graph_from_file(filename):
     return graph,sum
 
 # Read graph from file
-filename1 = "randomGraphLarge.txt_out.txt"  
+filename1 = "testSet/randomGraph100k_out.txt"  
 graph_edges1 ,sum1= read_graph_from_file(filename1)
 # Create graph from edge list
 ourGraph = nx.Graph()
@@ -30,7 +30,7 @@ ourGraph.add_weighted_edges_from(graph_edges1)
 
 
 
-filename2 = "randomGraphLarge.txt"
+filename2 = "testSet/randomGraph100k"
 graph_edges2,sum2 = read_graph_from_file(filename2)
 
 refGraph = nx.Graph()
